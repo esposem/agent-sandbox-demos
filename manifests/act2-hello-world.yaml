@@ -1,0 +1,15 @@
+apiVersion: agents.x-k8s.io/v1alpha1
+kind: Sandbox
+metadata:
+  name: hello-world-kata
+spec:
+  podTemplate:
+    spec:
+      runtimeClassName: kata
+      containers:
+      - name: sandbox
+        image: busybox:latest
+        command:
+        - sh
+        - -c
+        - echo 'Hello from Agent Sandbox running in a Kata VM!' && sleep 3600

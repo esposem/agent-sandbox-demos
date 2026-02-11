@@ -1,0 +1,50 @@
+apiVersion: agents.x-k8s.io/v1alpha1
+kind: Sandbox
+metadata:
+  name: python-sandbox-kata
+spec:
+  shutdownTime: "PLACEHOLDER"
+  podTemplate:
+    metadata:
+      labels:
+        sandbox: python-kata
+    spec:
+      runtimeClassName: kata
+      containers:
+      - name: python-sandbox
+        image: python:3.11-slim
+        command:
+        - python
+        - -c
+        - |
+          from http.server import HTTPServer, BaseHTTPRequestHandler
+          import json, subprocess
+
+          class Handler(BaseHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path == '/health':
+                      self.send_response(200)
+                      self.send_header('Content-type', 'application/json')
+                      self.end_headers()
+                      self.wfile.write(json.dumps({
+                          'status': 'ok',
+                          'runtime': 'kata'
+                      }).encode())
+                  elif self.path == '/info':
+                      kernel = subprocess.run(['uname', '-r'], capture_output=True, text=True)
+                      cgroup = open('/proc/1/cgroup').read().strip()
+                      self.send_response(200)
+                      self.send_header('Content-type', 'application/json')
+                      self.end_headers()
+                      self.wfile.write(json.dumps({
+                          'kernel': kernel.stdout.strip(),
+                          'cgroup': cgroup
+                      }).encode())
+                  else:
+                      self.send_response(404)
+                      self.end_headers()
+
+          print('Python sandbox server on port 8888...')
+          HTTPServer(('0.0.0.0', 8888), Handler).serve_forever()
+        ports:
+        - containerPort: 8888

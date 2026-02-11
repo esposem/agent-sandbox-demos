@@ -1,0 +1,8 @@
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxWarmPool
+metadata:
+  name: kata-warm-pool
+spec:
+  replicas: 3
+  sandboxTemplateRef:
+    name: kata-python-template
