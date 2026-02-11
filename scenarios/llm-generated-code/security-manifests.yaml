@@ -1,0 +1,24 @@
+## Plain Pod -- runs with default container runtime (runc)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: code-interpreter-runc
+spec:
+  containers:
+  - name: python
+    image: python:3.11-slim
+    command: ["sleep", "infinity"]
+---
+## Agent Sandbox -- runs inside a Kata VM
+apiVersion: agents.x-k8s.io/v1alpha1
+kind: Sandbox
+metadata:
+  name: code-interpreter-kata
+spec:
+  podTemplate:
+    spec:
+      runtimeClassName: kata
+      containers:
+      - name: python
+        image: python:3.11-slim
+        command: ["sleep", "infinity"]
