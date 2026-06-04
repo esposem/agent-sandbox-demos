@@ -131,18 +131,18 @@ narrate "The controller is now provisioning 2 kata-remote VMs..."
 
 # Show progress as VMs come up
 sleep 5
-run "kubectl get pods -l agents.x-k8s.io/pool"
+run "kubectl get pods -l agents.x-k8s.io/warm-pool-sandbox"
 
-wait_pods_by_label "agents.x-k8s.io/pool" 2 300
+wait_pods_by_label "agents.x-k8s.io/warm-pool-sandbox" 2 300
 
-run_slow "kubectl get pods -l agents.x-k8s.io/pool -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName,AGE:.metadata.creationTimestamp"
+run_slow "kubectl get pods -l agents.x-k8s.io/warm-pool-sandbox -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName,AGE:.metadata.creationTimestamp"
 
 key_point "2 pre-warmed kata-remote VMs running. Each is a dedicated peer-pod VM."
 
 show_step "Verify VM isolation"
 
 # Get the name of the first warm pool pod
-WARM_POD=$(kubectl get pods -l agents.x-k8s.io/pool -o jsonpath='{.items[0].metadata.name}')
+WARM_POD=$(kubectl get pods -l agents.x-k8s.io/warm-pool-sandbox -o jsonpath='{.items[0].metadata.name}')
 
 narrate "Let's verify isolation inside one of the warm pool pods."
 
@@ -180,7 +180,7 @@ narrate_block \
 
 show_step "Record the current warm pool pods"
 
-run "kubectl get pods -l agents.x-k8s.io/pool -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,AGE:.metadata.creationTimestamp"
+run "kubectl get pods -l agents.x-k8s.io/warm-pool-sandbox -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,AGE:.metadata.creationTimestamp"
 
 show_step "Submit a SandboxClaim"
 
@@ -199,11 +199,11 @@ narrate "The SandboxClaim created a Sandbox which adopted a pre-warmed pod."
 run "kubectl get sandbox my-kata-remote-session"
 
 # Get the actual pod name -- warm pool pods keep their original name after adoption
-CLAIMED_POD=$(kubectl get sandbox my-kata-remote-session -o jsonpath='{.status.podName}' 2>/dev/null || echo "")
-if [ -z "$CLAIMED_POD" ]; then
+# CLAIMED_POD=$(kubectl get sandbox my-kata-remote-session -o jsonpath='{.status.podName}' 2>/dev/null || echo "")
+# if [ -z "$CLAIMED_POD" ]; then
     # Fallback: try the annotation
-    CLAIMED_POD=$(kubectl get sandbox my-kata-remote-session -o jsonpath='{.metadata.annotations.agents\.x-k8s\.io/pod-name}' 2>/dev/null || echo "")
-fi
+    CLAIMED_POD=$(kubectl get sandboxclaim my-kata-remote-session -o jsonpath='{.metadata.labels.agents\.x-k8s\.io/sandbox-name}' 2>/dev/null || echo "")
+# fi
 
 if [ -n "$CLAIMED_POD" ]; then
     key_point "Adopted pod: ${CLAIMED_POD}"
@@ -211,7 +211,7 @@ if [ -n "$CLAIMED_POD" ]; then
 fi
 
 # Check ready status
-READY=$(kubectl get sandbox my-kata-remote-session -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+READY=$(kubectl get sandboxclaim my-kata-remote-session -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
 if [ "$READY" = "True" ]; then
     key_point "Sandbox status: Ready=True. Instant provisioning achieved!"
 fi
@@ -230,7 +230,7 @@ narrate "The pool detects it lost a pod and creates a replacement."
 
 sleep 5
 
-run "kubectl get pods -l agents.x-k8s.io/pool -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,AGE:.metadata.creationTimestamp"
+run "kubectl get pods -l agents.x-k8s.io/warm-pool-sandbox -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,AGE:.metadata.creationTimestamp"
 
 key_point "Pool automatically scaled back to 2 replicas. New VM provisioned to replace the claimed one."
 
