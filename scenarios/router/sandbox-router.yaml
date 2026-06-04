@@ -1,0 +1,77 @@
+# Sandbox router — ClusterIP Service and Deployment.
+# Default image: quay.io/eesposit/sandbox-router:latest
+# Build your own: https://github.com/kubernetes-sigs/agent-sandbox/tree/main/clients/python/agentic-sandbox-client/sandbox-router
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sandbox-router-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: sandbox-router
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sandbox-router-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sandbox-router
+  template:
+    metadata:
+      labels:
+        app: sandbox-router
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: sandbox-router
+      containers:
+      - name: router
+        image: quay.io/eesposit/sandbox-router:latest
+        # imagePullPolicy: Never  # Uncomment for kind/minikube loaded images
+        env:
+        - name: PROXY_TIMEOUT_SECONDS
+          value: "180"
+        - name: ALLOW_UNAUTHENTICATED_ROUTER
+          value: "false"
+        # - name: ROUTER_AUTH_TOKEN
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: sandbox-router-auth
+        #       key: auth-token
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
