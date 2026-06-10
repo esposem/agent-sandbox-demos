@@ -1,0 +1,73 @@
+# Simple Kata Pod with Service and Route
+# Access the route to get the HTTP response
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-kata-pod
+  labels:
+    app: simple-kata-pod
+spec:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+  runtimeClassName: kata-remote
+  containers:
+  - name: python
+    image: python:3.11-slim
+    command:
+      - python
+      - -u                  # Added -u to force unbuffered stdout so logs show up instantly
+      - -c
+      - |
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+        import json, os, platform
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                if self.path == '/health':
+                    self.wfile.write(json.dumps({'status': 'healthy'}).encode())
+                elif self.path == '/info':
+                    self.wfile.write(json.dumps({
+                        'hostname': os.uname().nodename,
+                        'kernel': platform.release(),
+                        'arch': platform.machine(),
+                        'runtime': 'kata-remote',
+                    }).encode())
+                else:
+                    self.wfile.write(json.dumps({'status': 'ready', 'pod': 'simple-kata-pod'}).encode())
+        print('Simple Kata Pod ready on port 8888...')
+        HTTPServer(('0.0.0.0', 8888), Handler).serve_forever()
+    ports:
+    - containerPort: 8888
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: simple-kata-service
+spec:
+  selector:
+    app: simple-kata-pod
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8888       # The port the service exposes internally within the cluster
+    targetPort: 8888 # The port your Python application inside the container listens on
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: simple-kata-route
+spec:
+  # Optional: host: my-app.example.com
+  # If you omit 'host', OpenShift automatically generates a default domain for you
+  to:
+    kind: Service
+    name: simple-kata-service
+    weight: 100
+  port:
+    targetPort: http  # References the named port 'http' from your Service
+  wildcardPolicy: None
