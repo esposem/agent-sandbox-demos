@@ -1,0 +1,7 @@
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxClaim
+metadata:
+  name: kata-bm-claim
+spec:
+  warmPoolRef:
+    name: kata-bm-warm-pool
